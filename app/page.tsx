@@ -3,9 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState, useEffect, useRef } from 'react'
-import { useFitment } from '@/context/FitmentContext'
-import { checkFitment } from '@/lib/fitment-checker'
-import { FitmentBadge } from '@/components/FitmentBadge'
+import { addToCart, buildInquiryUrl, getCartCount, getStoredCart, type CartItem } from '@/lib/cart'
 import { normalizePartCategory, partStore } from '@/lib/store'
 import {
   ArrowRight,
@@ -22,67 +20,49 @@ import {
 } from 'lucide-react'
 
 const categories = [
-  { name: 'Braking', count: 42, icon: '◒', slug: 'braking', subcategories: ['Disc brakes', 'Pads', 'Calipers'] },
-  { name: 'Engine', count: 86, icon: '◈', slug: 'engine', subcategories: ['Filters', 'Cooling', 'Timing'] },
-  { name: 'Suspension', count: 31, icon: '⌁', slug: 'suspension', subcategories: ['Springs', 'Shocks', 'Bushings'] },
-  { name: 'Electrical', count: 54, icon: 'ϟ', slug: 'electrical', subcategories: ['Batteries', 'Sensors', 'Wiring'] },
-  { name: 'Body & Exterior', count: 28, icon: '◇', slug: 'body-and-exterior', subcategories: ['Panels', 'Trim', 'Glass'] },
-  { name: 'Lighting', count: 18, icon: '☼', slug: 'lighting', subcategories: ['Headlights', 'Bulbs', 'LEDs'] },
-  { name: 'Cooling', count: 15, icon: '❄', slug: 'cooling', subcategories: ['Radiators', 'Fans', 'Thermostats'] },
-  { name: 'Mirror', count: 9, icon: '◌', slug: 'mirror', subcategories: ['Mirror caps', 'Glass', 'Housing'] },
-  { name: 'Accessory', count: 23, icon: '✧', slug: 'accessory', subcategories: ['Interior', 'Exterior', 'Tools'] },
+  'All Parts',
+  'Clutch & Transmission',
+  'Bearings',
+  'Brakes & Friction',
+  'Engine & Cooling',
+  'Filtration & Fluids',
+  'Steering & Suspension',
+  'Oil Seals & Rubbers',
 ]
 
-
-const vehicleTypes = ['Any vehicle', 'BMW', 'chevrolet', 'VW', 'Mercedes', 'mazda', 'suzuki', 'toyota', 'mercedes', 'mitsubishi', 'honda',]
-const vehicleModels = ['Any model', '3 Series', 'A4', 'Golf GTI', 'C-Class', 'WRX', '911']
-const vehicleYears = ['Any year', '2012', '2013', '2014', '2015', '2017', '2019', '2020', '2021']
+const vehicleTypes = [
+  'All Vehicles',
+  'Isuzu FRR',
+  'Isuzu FSR',
+  'Isuzu FTR',
+  'Isuzu FVZ',
+  'Isuzu CXZ',
+  'Isuzu NPR / NQR (4.3 / 4.3 New)',
+  'Hino 500 / Ranger',
+  'Mitsubishi Fuso / Canter (FH / F3R)',
+  'Small Vehicles (CVT & Passenger Pads)',
+]
+const vehicleYears = ['Any year','2011', '2012', '2013', '2014', '2015', '2017', '2019', '2020', '2021']
 
 
 export default function Page() {
   const router = useRouter()
   const [query, setQuery] = useState('')
-  const [activeCategory, setActiveCategory] = useState('All parts')
+  const [activeCategory, setActiveCategory] = useState('All Parts')
   const [mobileMenu, setMobileMenu] = useState(false)
-  const [enquiryCount, setEnquiryCount] = useState(0)
-  const { vehicle, setVehicle } = useFitment()
+  const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [isCartOpen, setIsCartOpen] = useState(false)
+  const [isFitmentModalOpen, setIsFitmentModalOpen] = useState(false)
+  const [helpForm, setHelpForm] = useState({ name: '', vehicle: '', issue: '' })
+  const [vehicleType, setVehicleType] = useState('All Vehicles')
+  const [vehicleYear, setVehicleYear] = useState('Any year')
 
   // Initialize with the vehicle from context if available
-  const [vehicleType, setVehicleType] = useState(vehicle?.make || 'Any vehicle')
-  const [vehicleModel, setVehicleModel] = useState(vehicle?.model || 'Any model')
-  const [vehicleYear, setVehicleYear] = useState(vehicle?.year || 'Any year')
 
   // Keep dropdowns in sync if the global vehicle updates elsewhere
-  useEffect(() => {
-    if (vehicle) {
-      if (vehicle.make) setVehicleType(vehicle.make)
-      if (vehicle.model) setVehicleModel(vehicle.model)
-      if (vehicle.year) setVehicleYear(vehicle.year)
-    }
-  }, [vehicle])
 
   const [openCategory, setOpenCategory] = useState<string | null>(null)
   const [showAllCategories, setShowAllCategories] = useState(false)
-  const [helpForm, setHelpForm] = useState({
-    name: '',
-    vehicle: '',
-    issue: '',
-  })
-  const [isFitmentModalOpen, setIsFitmentModalOpen] = useState(false)
-
-
-  const whatsappHelpLink = useMemo(() => {
-    const text = [
-      'Hello Classic Auto Spares Parts, I need help finding the right car part.',
-      helpForm.name ? `Name: ${helpForm.name}` : '',
-      helpForm.vehicle ? `Vehicle details: ${helpForm.vehicle}` : '',
-      helpForm.issue ? `Additional information: ${helpForm.issue}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n\n')
-
-    return `https://wa.me/15551234567?text=${encodeURIComponent(text)}`
-  }, [helpForm])
 
   // Filter catalog by Category, Query, and Vehicle Compatibility
   // const filteredProducts = useMemo(() => {
@@ -118,31 +98,22 @@ export default function Page() {
   }, [query])
 
   const heroSlides = useMemo(() => [
-    {
-      title: 'The right part. The first time.',
-      eyebrow: 'Parts that keep you moving',
-      subtitle: 'A carefully selected catalogue of reliable parts for drivers who care what is under the hood.',
-      image: '/Classic Auto Spares-hero.png',
-      cta: 'Browse catalogue',
-      href: '#catalogue',
-    },
-    {
-      title: 'Facelift kits available',
-      eyebrow: 'Upgrade your look',
-      subtitle: 'Premium facelift kits and styling parts for popular models.',
-      image: '/Classic Auto Spares-hero.png',
-      cta: 'See kits',
-      href: '#catalogue',
-    },
-    {
-      title: 'Effortless shopping & shipping',
-      eyebrow: 'Fast & simple',
-      subtitle: 'Fast delivery, easy returns, and expert fitment support.',
-      image: '/Classic Auto Spares-hero.png',
-      cta: 'Get support',
-      href: '#support',
-    },
-  ], [])
+  {
+    title: 'Brake Linings & Friction Kits',
+    eyebrow: 'Stopping Power Guaranteed',
+    subtitle: 'Premium brake linings for heavy axles (110/1, 120/7, 140/6) plus full-range disc pads for pickups and vans.',
+    image: '/1.jpeg',
+    cta: 'View brake parts',
+    href: '#catalogue',
+  },
+  {
+    title: 'Complete Overhaul & Suspension',
+    eyebrow: 'Kirinyaga Road Workshop Pickups',
+    subtitle: 'Cylinder liner sleeves (4HF1, 6HH1, 6SD1), genuine KOYO/NSK bearings, and front axle king pin kits.',
+    image: '/2.jpeg',
+    cta: 'Order on WhatsApp',
+    href: '#fitment',
+  },  ], [])
 
   const [currentSlide, setCurrentSlide] = useState(0)
 
@@ -152,7 +123,7 @@ export default function Page() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const target = 240
+    const target = 110
     const duration = 1200
     const intervalMs = 30
     const steps = Math.max(1, Math.floor(duration / intervalMs))
@@ -259,6 +230,40 @@ export default function Page() {
     router.push(`/search?q=${encodeURIComponent(term)}`)
   }
 
+  const whatsappHelpLink = `https://wa.me/15551234567?text=${encodeURIComponent(
+    `Hello, I need help finding the right part. My details are: ${helpForm.name || 'Customer'} • ${helpForm.vehicle || 'Vehicle details not provided'} • ${helpForm.issue || 'No issue details yet'}`
+  )}`
+
+  const browseByVehicle = () => {
+    const parts = [vehicleType, vehicleYear].filter((value) => value && value !== 'All Vehicles' && value !== 'Any year')
+    const term = parts.join(' ')
+    if (!term) {
+      router.push('/search')
+      return
+    }
+    router.push(`/search?q=${encodeURIComponent(term)}`)
+  }
+
+  useEffect(() => {
+    setCartItems(getStoredCart())
+  }, [])
+
+  const cartCount = useMemo(() => getCartCount(cartItems), [cartItems])
+  const cartTotal = useMemo(() => cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0), [cartItems])
+
+  const handleAddToCart = (product: { slug: string; name: string; code: string; price: number; image?: string; category?: string }) => {
+    const nextItems = addToCart({
+      slug: product.slug,
+      name: product.name,
+      code: product.code,
+      price: product.price,
+      quantity: 1,
+      image: product.image,
+    })
+    setCartItems(nextItems)
+    setIsCartOpen(true)
+  }
+
   // Close suggestion dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -276,30 +281,22 @@ export default function Page() {
   // Reset pagination whenever search query or category changes
   useEffect(() => {
     setVisibleCount(PAGE_SIZE)
-  }, [query, activeCategory, vehicleType, vehicleModel, vehicleYear])
+  }, [query, activeCategory])
 
   // Filtered catalogue list
   const filteredProducts = useMemo(() => {
     return partStore.filter((product) => {
-      // Robust category check (handles exact match or substring match like "Braking" in "Braking System")
       const matchesCategory =
-        activeCategory === 'All parts' ||
+        activeCategory === 'All Parts' ||
         product.category.toLowerCase() === activeCategory.toLowerCase() ||
         product.category.toLowerCase().startsWith(activeCategory.toLowerCase())
 
       const haystack = `${product.name} ${product.category} ${product.code} ${product.sku}`.toLowerCase()
       const matchesQuery = !query.trim() || haystack.includes(query.trim().toLowerCase())
 
-      const fitmentInfo = checkFitment(product, {
-        make: vehicleType,
-        model: vehicleModel,
-        year: vehicleYear,
-      })
-      const matchesVehicle = fitmentInfo.status !== 'incompatible'
-
-      return matchesCategory && matchesQuery && matchesVehicle
+      return matchesCategory && matchesQuery
     })
-  }, [activeCategory, query, vehicleModel, vehicleType, vehicleYear])
+  }, [activeCategory, query])
 
   // Paginated slice for the grid
   const visibleProducts = useMemo(() => {
@@ -309,31 +306,30 @@ export default function Page() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="border-b border-border bg-primary px-4 py-2 text-center text-xs font-medium tracking-wide text-primary-foreground">
-        Free delivery on orders over KES 10,000 · Expert fitment support included
+        Free delivery on orders over KES 10,000 · Expert support included
       </div>
 
       <header className="border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 lg:px-8">
-          <a href="#top" className="flex items-center gap-3" aria-label="Classic Auto Spares Parts home">
-            <span className="flex size-10 items-center justify-center rounded-full bg-accent text-accent-foreground"><Wrench className="size-5" /></span>
-            <span className="font-mono text-lg font-bold tracking-tight">Classic Auto Spares<span className="text-accent">.</span></span>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:py-5 lg:px-8">
+          <a href="#top" className="flex min-w-0 items-center gap-2 sm:gap-3" aria-label="Classic Auto Spares Parts home">
+            <img src="/logo.png" alt="Classic Auto Spares logo" className="h-9 w-auto shrink-0 object-contain sm:h-11" />
+            <span className="truncate text-sm font-bold tracking-tight text-foreground sm:text-base">Classic Auto Spares</span>
           </a>
           <nav className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex" aria-label="Main navigation">
             <a className="text-foreground" href="#catalogue">Catalogue</a>
             <a className="hover:text-foreground" href="#categories">Categories</a>
-            <a className="hover:text-foreground" href="#fitment">Find your fit</a>
             <a className="hover:text-foreground" href="/support">Support</a>
           </nav>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setEnquiryCount((count) => count + 1)} className="hidden items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:border-accent md:flex" aria-label={`Enquiry list, ${enquiryCount} items`}>
-              <ShoppingBag className="size-4" /> Enquiry list {enquiryCount > 0 && <span className="flex size-5 items-center justify-center rounded-full bg-accent text-xs text-accent-foreground">{enquiryCount}</span>}
+          <div className="flex shrink-0 items-center gap-2">
+            <button onClick={() => setIsCartOpen(true)} className="hidden items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:border-accent md:flex" aria-label={`Cart, ${cartCount} items`}>
+              <ShoppingBag className="size-4" /> Cart {cartCount > 0 && <span className="flex size-5 items-center justify-center rounded-full bg-accent text-xs text-accent-foreground">{cartCount}</span>}
             </button>
             <button className="rounded-full border border-border p-2 md:hidden" onClick={() => setMobileMenu(!mobileMenu)} aria-label="Toggle menu">
               {mobileMenu ? <X className="size-5" /> : <Menu className="size-5" />}
             </button>
           </div>
         </div>
-        {mobileMenu && <nav className="flex flex-col gap-4 border-t border-border px-4 py-5 text-sm md:hidden"><a href="#catalogue">Catalogue</a><a href="#categories">Categories</a><a href="#fitment">Find your fit</a><a href="/support">Support</a></nav>}
+        {mobileMenu && <nav className="flex flex-col gap-4 border-t border-border px-4 py-5 text-sm md:hidden"><a href="#catalogue">Catalogue</a><a href="#categories">Categories</a><a href="/support">Support</a></nav>}
       </header>
 
       <section id="top" className="w-full pb-12 pt-0 lg:pb-20">
@@ -391,7 +387,7 @@ export default function Page() {
                         <div className="flex flex-col">
                           <span className="font-semibold text-foreground">{item.name}</span>
                           <span className="text-[11px] text-muted-foreground">
-                            {item.compatibility?.[0] ? `${item.compatibility[0].make} ${item.compatibility[0].model}` : item.category}
+                            {item.compatibility?.description || item.compatibility?.chassis?.[0] || item.category}
                           </span>
                         </div>
                         <div className="text-right">
@@ -417,99 +413,90 @@ export default function Page() {
             )}
           </div>
 
-          {/* Vehicle Selectors + Search Action Button */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:min-w-[680px]">
-            {/* Make / Vehicle Type */}
-            <div className="relative">
-              <select
-                value={vehicleType}
-                onChange={(event) => setVehicleType(event.target.value)}
-                className="h-12 w-full appearance-none rounded-2xl border border-border bg-background px-4 pr-10 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-              >
-                {vehicleTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            </div>
+        </div>
 
-            {/* Model */}
-            <div className="relative">
-              <select
-                value={vehicleModel}
-                onChange={(event) => setVehicleModel(event.target.value)}
-                className="h-12 w-full appearance-none rounded-2xl border border-border bg-background px-4 pr-10 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-              >
-                {vehicleModels.map((model) => (
-                  <option key={model} value={model}>
-                    {model}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            </div>
+<div className="mx-auto mt-6 max-w-7xl px-4 lg:px-8">
+  <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-r from-card via-card/90 to-card p-5 shadow-xl backdrop-blur-md transition-all hover:border-accent/40 sm:p-6">
+    {/* Subtle Red Brand Accent Line on Top */}
+    <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent" />
 
-            {/* Year */}
-            <div className="relative">
-              <select
-                value={vehicleYear}
-                onChange={(event) => setVehicleYear(event.target.value)}
-                className="h-12 w-full appearance-none rounded-2xl border border-border bg-background px-4 pr-10 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-              >
-                {vehicleYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            </div>
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+      {/* Title & Description */}
+      <div className="max-w-md">
+        <div className="inline-flex items-center gap-2">
+          <span className="flex size-2 rounded-full bg-accent animate-pulse" />
+          <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-accent">
+            Vehicle Compatibility
+          </p>
+        </div>
+        <h3 className="mt-1 font-mono text-lg font-bold tracking-tight text-foreground sm:text-xl">
+          Find Exact Parts For Your Rig
+        </h3>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          Filter by chassis or model (FRR, 4.3, FSR, FH, FVZ) to verify guaranteed fitment.
+        </p>
+      </div>
 
-            {/* Find Matching Parts Button */}
-            <button
-              type="button"
-              onClick={() => {
-                // 1. Save vehicle to global context & localStorage
-                if (vehicleType && vehicleType !== 'Any vehicle') {
-                  setVehicle({
-                    make: vehicleType,
-                    model: vehicleModel,
-                    year: vehicleYear,
-                  })
-                } else {
-                  setVehicle(null)
-                }
-
-                // 2. Build URL search params for the search page
-                const params = new URLSearchParams()
-
-                if (vehicleType && vehicleType !== 'Any vehicle') {
-                  params.set('make', vehicleType)
-                }
-                if (vehicleModel && vehicleModel !== 'Any model') {
-                  params.set('model', vehicleModel)
-                }
-                if (vehicleYear && vehicleYear !== 'Any year') {
-                  params.set('year', vehicleYear)
-                }
-                if (query.trim()) {
-                  params.set('q', query.trim())
-                }
-
-                const queryString = params.toString()
-                router.push(`/search${queryString ? `?${queryString}` : ''}`)
-              }}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-accent px-4 text-xs font-bold text-accent-foreground shadow-sm transition hover:brightness-110 active:scale-[0.98]"
+      {/* Selectors & Action Button */}
+      <div className="grid w-full items-end gap-3 sm:grid-cols-12 lg:max-w-2xl">
+        {/* Make / Model Select */}
+        <div className="sm:col-span-5">
+          <label className="block font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+            Truck Chassis / Model
+          </label>
+          <div className="relative">
+            <select
+              value={vehicleType}
+              onChange={(event) => setVehicleType(event.target.value)}
+              className="h-12 w-full appearance-none rounded-xl border border-border/70 bg-background/90 px-3.5 pr-10 font-mono text-xs font-semibold text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
             >
-              <span>Find Parts</span>
-              <ArrowRight className="size-3.5" />
-            </button>
+              {vehicleTypes.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           </div>
         </div>
 
-        <div className="relative isolate mt-6 overflow-hidden rounded-3xl border border-border bg-gradient-to-b from-card/80 to-card p-6 lg:p-12 shadow-2xl">
+        {/* Year / Spec Select */}
+        <div className="sm:col-span-4">
+          <label className="block font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+            Year / Specification
+          </label>
+          <div className="relative">
+            <select
+              value={vehicleYear}
+              onChange={(event) => setVehicleYear(event.target.value)}
+              className="h-12 w-full appearance-none rounded-xl border border-border/70 bg-background/90 px-3.5 pr-10 font-mono text-xs font-semibold text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+            >
+              {vehicleYears.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          </div>
+        </div>
+
+        {/* Find Parts CTA Button */}
+        <div className="sm:col-span-3">
+          <button
+            type="button"
+            onClick={browseByVehicle}
+            className="flex h-12 w-full items-center justify-center gap-2 bg-accent px-4 font-mono text-xs font-bold uppercase tracking-wider text-accent-foreground shadow-lg shadow-accent/25 transition duration-200 hover:brightness-110 active:scale-[0.98]"
+          >
+            <span>Find</span>
+            <ArrowRight className="size-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+        <div className="relative isolate mt-6 overflow-hidden  bg-gradient-to-b from-card/80 to-card p-6 lg:p-12 shadow-2xl">
           {/* Subtle background glow */}
           <div className="pointer-events-none absolute -left-20 -top-20 size-96 rounded-full bg-accent/10 blur-3xl" />
           <div className="pointer-events-none absolute -right-20 bottom-0 size-96 rounded-full bg-accent/5 blur-3xl" />
@@ -541,16 +528,17 @@ export default function Page() {
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <a
                   href="#catalogue"
-                  className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3.5 text-sm font-bold text-accent-foreground shadow-lg shadow-accent/20 transition hover:brightness-110"
+                  className="inline-flex items-center gap-2  bg-accent px-6 py-3.5 text-sm font-bold text-accent-foreground shadow-lg shadow-accent/20 transition hover:brightness-110"
                 >
                   Browse Catalogue <ArrowRight className="size-4" />
                 </a>
-                <a
-                  href="#fitment"
-                  className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-6 py-3.5 text-sm font-bold backdrop-blur transition hover:border-accent hover:bg-background"
+                <button
+                  type="button"
+                  onClick={() => setIsFitmentModalOpen(true)}
+                  className="inline-flex items-center gap-2  border border-border bg-background px-5 py-3.5 text-sm font-bold text-foreground transition hover:border-accent hover:text-accent"
                 >
-                  Match My Vehicle
-                </a>
+                  Browse by vehicle <ArrowRight className="size-4" />
+                </button>
               </div>
 
               {/* Trust Badges */}
@@ -577,13 +565,12 @@ export default function Page() {
                   {/* <span className="text-xs text-muted-foreground">Updated Weekly</span> */}
                 </div>
 
-                <div className="relative my-4 flex h-48 w-full items-center justify-center overflow-hidden rounded-xl bg-muted/40">
+                <div className="relative my-4 flex h-78 w-full items-center justify-center overflow-hidden bg-transparent">
                   <img
                     src={heroSlides[currentSlide]?.image || '/Classic Auto Spares-hero.png'}
                     alt="Featured component"
                     className="size-full object-cover object-center transition duration-500 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent" />
                   <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
                     <div>
                       <p className="font-mono text-sm font-bold text-foreground">{heroSlides[currentSlide]?.title}</p>
@@ -640,78 +627,41 @@ export default function Page() {
     }
   `}</style>
 
-            <div className="mx-auto max-w-7xl overflow-hidden">
-              <p className="mb-4 text-center text-sm font-bold text-muted-foreground">Brands we support</p>
-
-              {/* Mask creates fading edges on the left and right */}
-              <div className="group relative flex w-full overflow-hidden [mask-image:_linear-gradient(to_right,transparent_0,_black_128px,_black_calc(100%-128px),transparent_100%)] py-2">
-
-                {/* The animated track */}
-                <div className="flex w-max min-w-full shrink-0 animate-scroll-brands items-center gap-8 pr-8 group-hover:[animation-play-state:paused]">
-
-                  {/* Render the brands array TWICE to create the seamless infinite loop */}
-                  {[...brands, ...brands].map((brand, idx) => {
-                    const slug = brand.toLowerCase()
-                    const logoSrc = `/logos/${slug}.jpg`
-                    const failed = Boolean(failedLogos[slug])
-
-                    return (
-                      <div key={`${brand}-${idx}`} className="inline-flex h-28 w-28 flex-none items-center justify-center rounded-full border border-border bg-white p-3">
-                        {!failed ? (
-                          <img
-                            src={logoSrc}
-                            alt={`${brand} logo`}
-                            onError={(e) => {
-                              const el = e.currentTarget as HTMLImageElement
-                              if (el.src.endsWith('.png')) {
-                                el.src = `/logos/${slug}.svg`
-                              } else {
-                                setFailedLogos((prev) => ({ ...prev, [slug]: true }))
-                              }
-                            }}
-                            className="h-20 w-20 rounded-full bg-white object-contain"
-                          />
-                        ) : (
-                          <img src="/placeholder-logo.png" alt={`${brand} placeholder`} className="h-20 w-20 rounded-full bg-white object-contain" />
-                        )}
-                      </div>
-                    )
-                  })}
-
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </section>
 
       <section id="categories" className="mx-auto max-w-7xl px-4 pb-16 lg:px-8">
-        <div className="mb-6 flex items-end justify-between gap-4">
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-[1fr_minmax(0,1fr)_auto] md:items-end">
           <div>
             <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-accent">Shop by system</p>
             <h2 className="mt-2 font-mono text-2xl font-bold tracking-tight">Start with a category</h2>
           </div>
+          <div className="hidden md:block" aria-hidden="true" />
           <button
             type="button"
             onClick={() => setShowAllCategories((current) => !current)}
-            className="flex cursor-pointer items-center gap-2 text-sm font-bold text-muted-foreground hover:text-foreground"
+            className="flex cursor-pointer items-center gap-2 text-sm font-bold text-muted-foreground hover:text-foreground md:justify-self-end"
           >
             {showAllCategories ? 'Show less' : 'View more'} <ArrowRight className={`size-4 transition ${showAllCategories ? 'rotate-90' : ''}`} />
           </button>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {(showAllCategories ? categories : categories.slice(0, 5)).map((category) => (
+          {(showAllCategories ? categories : categories.slice(0, 6)).filter((category) => category !== 'All Parts').slice(0, 5).map((category) => (
             <button
-              key={category.name}
+              key={category}
               type="button"
-              onClick={() => router.push(`/categories/${category.slug}`)}
-              className={`group flex min-h-24 cursor-pointer items-center justify-between rounded-2xl border px-5 py-4 text-left transition hover:-translate-y-1 hover:border-accent hover:shadow-sm ${activeCategory === category.name ? 'border-accent bg-accent text-black shadow-sm' : 'border-border bg-card text-foreground hover:bg-accent/90 hover:text-black'}`}
+              onClick={() => {
+                setActiveCategory(category)
+                router.push(`/categories/${encodeURIComponent(category.toLowerCase().replace(/[^a-z0-9]+/g, '-'))}`)
+              }}
+              className={`group flex min-h-24 cursor-pointer items-center justify-between rounded-2xl border px-5 py-4 text-left transition hover:-translate-y-1 hover:border-accent hover:shadow-sm ${activeCategory === category ? 'border-accent bg-accent text-black shadow-sm' : 'border-border bg-card text-foreground hover:bg-accent/90 hover:text-black'}`}
             >
               <span>
-                <span className={`block text-sm font-semibold ${activeCategory === category.name ? 'text-black' : 'text-foreground'}`}>{category.name}</span>
-                <span className={`mt-1 block text-xs ${activeCategory === category.name ? 'text-black/70' : 'text-muted-foreground'}`}>{category.count} products</span>
+                <span className={`block text-sm font-semibold ${activeCategory === category ? 'text-black' : 'text-foreground'}`}>{category}</span>
+                <span className={`mt-1 block text-xs ${activeCategory === category ? 'text-black/70' : 'text-muted-foreground'}`}>Popular parts</span>
               </span>
-              <span className={`text-sm font-medium transition group-hover:translate-x-1 ${activeCategory === category.name ? 'text-black' : 'text-accent'}`}>→</span>
+              <span className={`text-sm font-medium transition group-hover:translate-x-1 ${activeCategory === category ? 'text-black' : 'text-accent'}`}>→</span>
             </button>
           ))}
         </div>
@@ -757,25 +707,25 @@ export default function Page() {
           <div className="mt-8 flex items-center gap-2 overflow-x-auto pb-2" role="tablist" aria-label="Product categories">
             <button
               type="button"
-              onClick={() => setActiveCategory('All parts')}
-              className={`cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold transition ${activeCategory === 'All parts'
-                  ? 'bg-accent text-black shadow-sm'
-                  : 'border border-border bg-background text-muted-foreground hover:text-foreground'
+              onClick={() => setActiveCategory('All Parts')}
+              className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm font-bold transition ${activeCategory === 'All Parts'
+                ? 'bg-accent text-black shadow-sm'
+                : 'border border-border bg-background text-muted-foreground hover:text-foreground'
                 }`}
             >
               All parts
             </button>
-            {categories.map((category) => (
+            {categories.filter((category) => category !== 'All Parts').map((category) => (
               <button
-                key={category.name}
+                key={category}
                 type="button"
-                onClick={() => setActiveCategory(category.name)}
-                className={`cursor-pointer whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold transition ${activeCategory === category.name
-                    ? 'bg-accent text-black shadow-sm'
-                    : 'border border-border bg-background text-muted-foreground hover:text-foreground'
+                onClick={() => setActiveCategory(category)}
+                className={`cursor-pointer whitespace-nowrap  px-4 py-2 text-sm font-bold transition ${activeCategory === category
+                  ? 'bg-accent text-black shadow-sm'
+                  : 'border border-border bg-background text-muted-foreground hover:text-foreground'
                   }`}
               >
-                {category.name}
+                {category}
               </button>
             ))}
           </div>
@@ -796,12 +746,6 @@ export default function Page() {
             <>
               <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {visibleProducts.map((product) => {
-                  const fitment = checkFitment(product, {
-                    make: vehicleType,
-                    model: vehicleModel,
-                    year: vehicleYear,
-                  })
-
                   return (
                     <Link
                       key={product.sku}
@@ -813,7 +757,7 @@ export default function Page() {
                           <img
                             src={product.image || '/Classic Auto Spares-hero.png'}
                             alt={product.name}
-                            className="size-full object-cover object-right opacity-75 grayscale transition duration-500 group-hover:scale-105 group-hover:grayscale-0"
+                            className="size-full object-cover object-right transition duration-500 group-hover:scale-105"
                           />
                           {product.tag && (
                             <span className="absolute left-4 top-4 rounded-full bg-accent px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-accent-foreground">
@@ -833,28 +777,18 @@ export default function Page() {
                             <p className="font-mono text-lg font-bold">KES {product.price.toLocaleString()}</p>
                           </div>
 
-                          {/* Dynamic Fitment Tag */}
-                          <div className="mt-3">
-                            {fitment.status === 'exact-match' && (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-400">
-                                ✓ {fitment.label}
-                              </span>
-                            )}
-                            {fitment.status === 'universal' && (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-                                Universal Fitment
-                              </span>
-                            )}
-                          </div>
-
                           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                            {product.compatibility?.map((c) => `${c.make} ${c.model}`).join(' · ') || 'Universal Fitment'}
+                            {product.compatibility?.description ||
+                              [
+                                ...(product.compatibility?.chassis ?? []),
+                                ...(product.compatibility?.engine ?? []),
+                              ].slice(0, 2).join(' / ') || 'Universal Fitment'}
                           </p>
                         </div>
                       </div>
 
                       <div className="p-5 pt-4">
-                        <div className="flex items-center justify-between border-t border-border pt-4">
+                        <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
                           <span className="font-mono text-xs text-muted-foreground">{product.code}</span>
                           <span className="inline-flex items-center gap-2 text-sm font-bold text-accent group-hover:underline">
                             View part <ArrowRight className="size-4" />
@@ -891,7 +825,7 @@ export default function Page() {
               <button
                 onClick={() => {
                   setQuery('')
-                  setActiveCategory('All parts')
+                  setActiveCategory('All Parts')
                 }}
                 className="mt-5 text-sm font-bold text-accent hover:underline"
               >
@@ -910,7 +844,7 @@ export default function Page() {
             <button
               type="button"
               onClick={() => setIsFitmentModalOpen(true)}
-              className="mt-6 inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition hover:bg-primary/90"
+              className="mt-6 inline-flex shrink-0 items-center justify-center gap-2 bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition hover:bg-primary/90"
             >
               Get fitment help <ArrowRight className="size-4" />
             </button>
@@ -962,7 +896,7 @@ export default function Page() {
               href={whatsappHelpLink}
               target="_blank"
               rel="noreferrer"
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:-translate-y-1"
+              className="mt-5 inline-flex w-full items-center justify-center gap-2  border border-emerald-400/40 bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:-translate-y-1"
             >
               <MessageCircle className="size-4" /> Send to WhatsApp
             </a>
@@ -1036,25 +970,83 @@ export default function Page() {
         </div>
       )}
 
+      {isCartOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-end bg-background/70 p-4 backdrop-blur-sm">
+          <div className="h-full w-full max-w-md rounded-[2rem] border border-border bg-card p-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-accent">Cart</p>
+                <h3 className="mt-1 font-mono text-2xl font-bold tracking-tight">Your items</h3>
+              </div>
+              <button type="button" onClick={() => setIsCartOpen(false)} className="rounded-full border border-border p-2 text-muted-foreground hover:text-foreground" aria-label="Close cart">
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3 overflow-y-auto pb-4">
+              {cartItems.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-background/60 p-6 text-center text-sm text-muted-foreground">
+                  Your cart is empty. Add parts to get started.
+                </div>
+              ) : (
+                cartItems.map((item) => (
+                  <div key={item.slug} className="flex items-center gap-3 rounded-2xl border border-border bg-background/60 p-3">
+                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-muted">
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} className="size-full object-cover" />
+                      ) : (
+                        <Wrench className="size-5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-foreground">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.code} • Qty {item.quantity}</p>
+                    </div>
+                    <p className="font-mono text-sm font-bold text-foreground">KES {(item.price * item.quantity).toLocaleString()}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {cartItems.length > 0 && (
+              <div className="mt-4 border-t border-border pt-4">
+                <div className="mb-3 flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-mono font-bold text-foreground">KES {cartTotal.toLocaleString()}</span>
+                </div>
+                <a
+                  href={buildInquiryUrl(cartItems)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-4 py-3 text-sm font-bold text-accent-foreground transition hover:brightness-110"
+                >
+                  <MessageCircle className="size-4" /> Send cart to WhatsApp
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <section id="location" className="px-0 pb-8">
         <div className="relative overflow-hidden border-y border-border bg-card">
           <div className="absolute inset-0">
             <iframe
               title="Classic Auto Spares Parts location"
-              src="https://www.google.com/maps?q=Nairobi%2C%20Kenya&output=embed"
+              src="https://www.google.com/maps?q=Yellow%20House%2C%20Kirinyaga%20Road%2C%20Nairobi%2C%20Kenya&output=embed"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               className="h-full min-h-[420px] w-full border-0"
             />
           </div>
           <div className="relative flex min-h-[420px] items-end justify-start bg-gradient-to-t from-background/95 via-background/40 to-transparent p-6 sm:p-8 lg:p-10">
-            <div className="max-w-md rounded-3xl border border-border/70 bg-background/85 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.16)] backdrop-blur">
+            <div className="max-w-md border border-border/70 bg-background/85 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.16)] backdrop-blur">
               <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-accent">Visit us</p>
               <h2 className="mt-3 font-mono text-2xl font-bold tracking-tight sm:text-3xl">Find our workshop</h2>
               <p className="mt-3 leading-7 text-muted-foreground">Drop in for fitment advice, quick pickups, and specialist parts support.</p>
               <div className="mt-5 space-y-1 text-sm text-foreground">
                 <p className="font-medium">Classic Auto Spares Parts</p>
-                <p>Nairobi, Nairobi County</p>
+                <p>Kirinyaga Road, Yellow House, 3rd Floor, Shop 3002, Nairobi</p>
               </div>
             </div>
           </div>
@@ -1063,14 +1055,56 @@ export default function Page() {
 
       <footer id="support" className="border-t border-border px-4 py-8 lg:px-8"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-4 text-sm text-muted-foreground sm:flex-row sm:items-center"><p className="font-mono font-bold text-foreground">Classic Auto Spares<span className="text-accent">.</span></p><p>Reliable parts. Clear advice. Better drives.</p><a href="/support" className="flex items-center gap-2 hover:text-foreground"><CircleHelp className="size-4" /> Questions? Talk to us</a></div></footer>
 
-      <a href="https://wa.me/15551234567?text=Hello%2C%20I%20need%20help%20finding%20the%20right%20car%20part." target="_blank" rel="noreferrer" className="fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-full border border-emerald-400/40 bg-emerald-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_35px_rgba(16,185,129,0.35)] transition hover:-translate-y-1">
+      {/* <a href="https://wa.me/15551234567?text=Hello%2C%20I%20need%20help%20finding%20the%20right%20car%20part." target="_blank" rel="noreferrer" className="fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-full border border-emerald-400/40 bg-emerald-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_35px_rgba(16,185,129,0.35)] transition hover:-translate-y-1">
         <span className="relative flex size-3.5 items-center justify-center">
           <span className="absolute inline-flex size-full animate-breathe-dot rounded-full bg-emerald-200/80" />
           <span className="relative size-2.5 rounded-full bg-white" />
         </span>
         <MessageCircle className="size-4" />
         Chat on WhatsApp
-      </a>
+      </a> */}
     </main>
   )
 }
+
+//bin            <div className="mx-auto max-w-7xl overflow-hidden">
+            //   <p className="mb-4 text-center text-sm font-bold text-muted-foreground">Brands we support</p>
+
+            //   {/* Mask creates fading edges on the left and right */}
+            //   <div className="group relative flex w-full overflow-hidden [mask-image:_linear-gradient(to_right,transparent_0,_black_128px,_black_calc(100%-128px),transparent_100%)] py-2">
+
+            //     {/* The animated track */}
+            //     <div className="flex w-max min-w-full shrink-0 animate-scroll-brands items-center gap-8 pr-8 group-hover:[animation-play-state:paused]">
+
+            //       {/* Render the brands array TWICE to create the seamless infinite loop */}
+            //       {[...brands, ...brands].map((brand, idx) => {
+            //         const slug = brand.toLowerCase()
+            //         const logoSrc = `/logos/${slug}.jpg`
+            //         const failed = Boolean(failedLogos[slug])
+
+            //         return (
+            //           <div key={`${brand}-${idx}`} className="inline-flex h-28 w-28 flex-none items-center justify-center rounded-full border border-border bg-white p-3">
+            //             {!failed ? (
+            //               <img
+            //                 src={logoSrc}
+            //                 alt={`${brand} logo`}
+            //                 onError={(e) => {
+            //                   const el = e.currentTarget as HTMLImageElement
+            //                   if (el.src.endsWith('.png')) {
+            //                     el.src = `/logos/${slug}.svg`
+            //                   } else {
+            //                     setFailedLogos((prev) => ({ ...prev, [slug]: true }))
+            //                   }
+            //                 }}
+            //                 className="h-20 w-20 rounded-full bg-white object-contain"
+            //               />
+            //             ) : (
+            //               <img src="/placeholder-logo.png" alt={`${brand} placeholder`} className="h-20 w-20 rounded-full bg-white object-contain" />
+            //             )}
+            //           </div>
+            //         )
+            //       })}
+
+            //     </div>
+            //   </div>
+            // </div>

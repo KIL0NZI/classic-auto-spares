@@ -14,7 +14,10 @@ import {
   PackageCheck,
   Share2,
 } from 'lucide-react'
+import { addToCart } from '@/lib/cart'
 import { getProductBySlug, getRelatedProducts } from '@/lib/catalog-data'
+
+const parseCurrencyValue = (value: string) => Number(value.replace(/[^\d.]/g, '').replace(/,/g, '')) || 0
 
 export default function PartPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params)
@@ -22,6 +25,7 @@ export default function PartPage({ params }: { params: Promise<{ slug: string }>
   const [activeImage, setActiveImage] = useState(0)
   const [quantity, setQuantity] = useState(1)
   const [copied, setCopied] = useState(false)
+  const [addedToCart, setAddedToCart] = useState(false)
 
   const relatedProducts = useMemo(() => {
     return product ? getRelatedProducts(product) : []
@@ -72,6 +76,22 @@ export default function PartPage({ params }: { params: Promise<{ slug: string }>
     }
   }
 
+  const handleAddToCart = () => {
+    if (!product) return
+
+    addToCart({
+      slug: product.slug,
+      name: product.name,
+      code: product.code,
+      price: parseCurrencyValue(product.price),
+      quantity,
+      image: images[activeImage],
+    })
+
+    setAddedToCart(true)
+    setTimeout(() => setAddedToCart(false), 1800)
+  }
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       {/* Top Banner */}
@@ -81,27 +101,23 @@ export default function PartPage({ params }: { params: Promise<{ slug: string }>
 
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 lg:px-8">
-          <Link href="/" className="flex items-center gap-3" aria-label="Classic Auto Spares Parts home">
-            <span className="flex size-10 items-center justify-center rounded-full bg-accent text-accent-foreground">
-              <Wrench className="size-5" />
-            </span>
-            <span className="font-mono text-lg font-bold tracking-tight">
-              Classic Auto Spares<span className="text-accent">.</span>
-            </span>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 lg:px-8">
+          <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3" aria-label="Classic Auto Spares Parts home">
+            <img src="/logo.png" alt="Classic Auto Spares logo" className="h-9 w-auto shrink-0 rounded-full object-cover ring-1 ring-border/70 sm:h-11" />
+            <span className="truncate text-sm font-bold tracking-tight text-foreground sm:text-base">Classic Auto Spares</span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={handleShare}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-accent hover:text-foreground"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground transition hover:border-accent hover:text-foreground sm:px-3 sm:text-xs"
             >
               <Share2 className="size-3.5" />
-              {copied ? 'Link copied' : 'Share'}
+              {copied ? 'Copied' : 'Share'}
             </button>
             <Link
               href="/#catalogue"
-              className="rounded-full border border-border px-4 py-1.5 text-xs font-bold text-muted-foreground transition hover:border-accent hover:text-foreground"
+              className="rounded-full border border-border px-3 py-1.5 text-[11px] font-bold text-muted-foreground transition hover:border-accent hover:text-foreground sm:px-4 sm:text-xs"
             >
               Back to Catalogue
             </Link>
@@ -247,12 +263,19 @@ export default function PartPage({ params }: { params: Promise<{ slug: string }>
                 </div>
               </div>
 
-              {/* Primary Order Action */}
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 bg-accent px-6 py-4 text-sm font-bold text-accent-foreground shadow-lg shadow-accent/20 transition hover:brightness-110"
+              >
+                {addedToCart ? 'Added to cart' : 'Add to cart'}
+              </button>
+
               <a
                 href={whatsappInquiryUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-500 px-6 py-4 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:brightness-110"
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 border border-emerald-400/30 bg-emerald-500 px-6 py-4 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:brightness-110"
               >
                 <MessageCircle className="size-5" /> Inquire / Order on WhatsApp
               </a>

@@ -5,6 +5,8 @@ import { use, useMemo, useState } from 'react'
 import { ArrowRight, ChevronRight, Search, SlidersHorizontal, Wrench } from 'lucide-react'
 import { categories, getCategoryBySlug, getProductsForCategory } from '@/lib/catalog-data'
 
+const parseCurrencyValue = (value: string) => Number(value.replace(/[^\d.]/g, '').replace(/,/g, '')) || 0
+
 export default function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params)
   const category = getCategoryBySlug(resolvedParams.slug)
@@ -24,10 +26,10 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
 
     const sorted = [...filtered].sort((a, b) => {
       if (sortBy === 'price-low') {
-        return Number.parseFloat(a.price.replace('$', '')) - Number.parseFloat(b.price.replace('$', ''))
+        return parseCurrencyValue(a.price) - parseCurrencyValue(b.price)
       }
       if (sortBy === 'price-high') {
-        return Number.parseFloat(b.price.replace('$', '')) - Number.parseFloat(a.price.replace('$', ''))
+        return parseCurrencyValue(b.price) - parseCurrencyValue(a.price)
       }
       if (sortBy === 'newest') {
         return a.tag === 'New arrival' ? -1 : 1
@@ -45,10 +47,10 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 lg:px-8">
-          <Link href="/" className="flex items-center gap-3" aria-label="Classic Auto Spares Parts home">
-            <span className="flex size-10 items-center justify-center rounded-full bg-accent text-accent-foreground"><Wrench className="size-5" /></span>
-            <span className="font-mono text-lg font-bold tracking-tight">Classic Auto Spares<span className="text-accent">.</span></span>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:py-5 lg:px-8">
+          <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3" aria-label="Classic Auto Spares Parts home">
+            <img src="/logo.png" alt="Classic Auto Spares logo" className="h-9 w-auto shrink-0 rounded-full object-cover ring-1 ring-border/70 sm:h-11" />
+            <span className="truncate text-sm font-bold tracking-tight text-foreground sm:text-base">Classic Auto Spares</span>
           </Link>
           <Link href="/" className="text-sm font-semibold text-muted-foreground hover:text-foreground">Back to home</Link>
         </div>
@@ -128,7 +130,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
                 {products.map((product) => (
                   <Link key={product.slug} href={`/parts/${product.slug}`} className="group overflow-hidden rounded-[1.5rem] border border-border bg-card transition hover:-translate-y-1 hover:border-accent">
                     <div className="relative h-48 overflow-hidden bg-muted">
-                      <img src={product.image} alt={product.name} className="size-full object-cover opacity-80 transition duration-500 group-hover:scale-105" />
+                      <img src={product.image} alt={product.name} className="size-full object-cover transition duration-500 group-hover:scale-105" />
                       <span className="absolute left-4 top-4 rounded-full bg-accent px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-black">{product.tag}</span>
                     </div>
                     <div className="p-5">

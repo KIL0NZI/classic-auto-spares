@@ -27,14 +27,10 @@ export default function SupportPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 lg:px-8">
-          <Link href="/" className="flex items-center gap-3" aria-label="Classic Auto Spares Parts home">
-            <span className="flex size-10 items-center justify-center rounded-full bg-accent text-accent-foreground">
-              <CircleHelp className="size-5" />
-            </span>
-            <span className="font-mono text-lg font-bold tracking-tight">
-              Classic Auto Spares<span className="text-accent">.</span>
-            </span>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:py-5 lg:px-8">
+          <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3" aria-label="Classic Auto Spares Parts home">
+            <img src="/logo.png" alt="Classic Auto Spares logo" className="h-9 w-auto shrink-0 rounded-full object-cover ring-1 ring-border/70 sm:h-11" />
+            <span className="truncate text-sm font-bold tracking-tight text-foreground sm:text-base">Classic Auto Spares</span>
           </Link>
           <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition hover:text-foreground">
             <ArrowLeft className="size-4" /> Back home
@@ -89,7 +85,7 @@ export default function SupportPage() {
                 <MapPin className="mt-0.5 size-4 text-accent" />
                 <div>
                   <p className="font-semibold text-foreground">Visit</p>
-                  <p className="mt-1">Classic Auto Spares Parts<br />Nairobi, Nairobi County<br />Kenya</p>
+                  <p className="mt-1">Yellow House, Kirinyaga Road<br />Nairobi, Kenya</p>
                 </div>
               </div>
             </div>
@@ -162,7 +158,7 @@ export default function SupportPage() {
           <div className="absolute inset-0">
             <iframe
               title="Classic Auto Spares Parts location"
-              src="https://www.google.com/maps?q=Nairobi%2C%20Kenya&output=embed"
+              src="https://www.google.com/maps?q=Yellow%20House%2C%20Kirinyaga%20Road%2C%20Nairobi%2C%20Kenya&output=embed"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               className="h-full min-h-[420px] w-full border-0"
@@ -175,7 +171,7 @@ export default function SupportPage() {
               <p className="mt-3 leading-7 text-muted-foreground">Drop in for fitment advice, quick pickups, and specialist parts support.</p>
               <div className="mt-5 space-y-1 text-sm text-foreground">
                 <p className="font-medium">Classic Auto Spares Parts</p>
-                <p>Nairobi, Nairobi County</p>
+                <p>Yellow House, Kirinyaga Road, Nairobi</p>
               </div>
             </div>
           </div>

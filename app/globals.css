@@ -32,29 +32,30 @@
 
 :root {
   color-scheme: dark;
-  --background: oklch(0.13 0.012 260);
-  --foreground: oklch(0.95 0.01 90);
-  --card: oklch(0.18 0.014 258);
-  --card-foreground: oklch(0.95 0.01 90);
-  --popover: oklch(0.18 0.014 258);
-  --popover-foreground: oklch(0.95 0.01 90);
-  --primary: oklch(0.26 0.014 260);
-  --primary-foreground: oklch(0.98 0.01 90);
-  --secondary: oklch(0.24 0.014 258);
-  --secondary-foreground: oklch(0.92 0.01 90);
-  --muted: oklch(0.2 0.014 258);
-  --muted-foreground: oklch(0.68 0.018 250);
-  --accent: oklch(0.78 0.16 75);
-  --accent-foreground: oklch(0.16 0.02 70);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.78 0.16 75);
+  --background: #0B0B0C;
+  --foreground: #F3F4F6;
+  --card: #141518;
+  --card-foreground: #F3F4F6;
+  --popover: #1C1E24;
+  --popover-foreground: #F3F4F6;
+  --primary: #B7222A;
+  --primary-foreground: #F3F4F6;
+  --secondary: #1C1E24;
+  --secondary-foreground: #F3F4F6;
+  --muted: #1C1E24;
+  --muted-foreground: #9CA3AF;
+  --accent: #B7222A;
+  --accent-foreground: #F3F4F6;
+  --border: #2A2D35;
+  --input: #1C1E24;
+  --ring: #B7222A;
   --radius: 0.8rem;
 }
 
 * { @apply border-border outline-ring/50; }
 html { @apply bg-background scroll-smooth; }
-body { @apply bg-background text-foreground font-sans; }
+body { @apply bg-background text-foreground font-sans; overflow-x: hidden; }
+img, svg { max-width: 100%; }
 ::selection { background: var(--accent); color: var(--accent-foreground); }
 
 @keyframes breathe-dot {

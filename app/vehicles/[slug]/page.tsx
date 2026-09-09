@@ -19,8 +19,7 @@ export default function VehiclePage({ params }: { params: Promise<{ slug: string
       <header className="border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 lg:px-8">
           <Link href="/" className="flex items-center gap-3" aria-label="Classic Auto Spares Parts home">
-            <span className="flex size-10 items-center justify-center rounded-full bg-accent text-accent-foreground"><Wrench className="size-5" /></span>
-            <span className="font-mono text-lg font-bold tracking-tight">Classic Auto Spares<span className="text-accent">.</span></span>
+            <img src="/logo.png" alt="Classic Auto Spares logo" className="h-12 w-auto object-contain sm:h-14" />
           </Link>
           <Link href="/" className="text-sm font-semibold text-muted-foreground hover:text-foreground">Back to home</Link>
         </div>

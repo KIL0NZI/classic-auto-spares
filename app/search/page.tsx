@@ -3,9 +3,6 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useMemo, useState, Suspense } from 'react'
-import { useFitment } from '@/context/FitmentContext'
-import { checkFitment } from '@/lib/fitment-checker'
-import { FitmentBadge } from '@/components/FitmentBadge'
 import {
   ArrowRight,
   ChevronDown,
@@ -19,47 +16,52 @@ import {
 import { normalizePartCategory, partStore } from '@/lib/store'
 
 const ALL_PRODUCTS = partStore.map((product) => {
-  const firstCompatibility = product.compatibility[0]
-  const fitment = product.compatibility.length
-    ? product.compatibility
-        .slice(0, 2)
-        .map((item) => {
-          const years = item.yearFrom && item.yearTo ? ` · ${item.yearFrom}–${item.yearTo}` : ''
-          return `${item.make} ${item.model}${years}`
-        })
-        .join(' • ')
-    : product.universalFit
-      ? 'Universal fit'
-      : 'Vehicle-specific fitment'
+  const fitment = product.compatibility?.description ||
+    (product.compatibility?.chassis?.length || product.compatibility?.engine?.length
+      ? [...(product.compatibility?.chassis ?? []), ...(product.compatibility?.engine ?? [])].slice(0, 2).join(' / ')
+      : product.universalFit
+        ? 'Universal fit'
+        : 'Vehicle-specific fitment')
 
   return {
     slug: product.slug,
     name: product.name,
     code: product.code,
     category: normalizePartCategory(product.category),
-    make: firstCompatibility?.make ?? 'Universal',
+    make: product.compatibility?.chassis?.[0] ?? product.compatibility?.engine?.[0] ?? 'Universal',
     price: product.price,
     fitment,
     tag: product.tag ?? (product.stock_quantity > 0 ? 'In stock' : 'Limited'),
     image: product.image ?? '/Classic Auto Spares-hero.png',
-    rawProduct: product, // <-- Add this line
+    rawProduct: product,
   }
 })
 
-const CATEGORIES = ['All', 'Braking', 'Engine', 'Suspension', 'Lighting', 'Cooling', 'Mirror']
+const CATEGORIES = [
+  'All Parts',
+  'Clutch & Transmission',
+  'Bearings',
+  'Brakes & Friction',
+  'Engine & Cooling',
+  'Filtration & Fluids',
+  'Steering & Suspension',
+  'Oil Seals & Rubbers',
+]
 
 const normalizeMake = (make: string | null | undefined) => make?.trim().toLowerCase() ?? ''
 const SUPPORTED_MAKES = ['All', ...new Set(
-  partStore.flatMap((product) => product.compatibility.map((item) => item.make).filter(Boolean))
+  partStore.flatMap((product) => [
+    ...(product.compatibility?.chassis ?? []),
+    ...(product.compatibility?.engine ?? []),
+  ]).filter(Boolean)
 )].sort((a, b) => (a === 'All' ? -1 : b === 'All' ? 1 : a.localeCompare(b)))
 
 function SearchResultsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { vehicle } = useFitment()
 
   const initialQuery = searchParams.get('q') || ''
-  const initialCategory = searchParams.get('category') || 'All'
+  const initialCategory = searchParams.get('category') || 'All Parts'
   const initialMake = searchParams.get('make') || 'All'
   const initialSort = searchParams.get('sort') || 'featured'
 
@@ -73,7 +75,7 @@ function SearchResultsContent() {
   const updateUrlParams = (updates: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString())
     Object.entries(updates).forEach(([key, value]) => {
-      if (!value || value === 'All') {
+      if (!value || value === 'All' || value === 'All Parts') {
         params.delete(key)
       } else {
         params.set(key, value)
@@ -104,7 +106,7 @@ function SearchResultsContent() {
 
   const handleResetFilters = () => {
     setSearchTerm('')
-    setSelectedCategory('All')
+    setSelectedCategory('All Parts')
     setSelectedMake('All')
     setSortBy('featured')
     router.replace('/search')
@@ -121,7 +123,7 @@ function SearchResultsContent() {
         product.fitment.toLowerCase().includes(q) ||
         product.category.toLowerCase().includes(q)
 
-      const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory
+      const matchesCategory = selectedCategory === 'All Parts' || product.category === selectedCategory
       const matchesMake = selectedMake === 'All' || normalizeMake(product.make) === normalizeMake(selectedMake)
 
       return matchesSearch && matchesCategory && matchesMake
@@ -132,7 +134,7 @@ function SearchResultsContent() {
     })
   }, [searchTerm, selectedCategory, selectedMake, sortBy])
 
-  const activeFiltersCount = (selectedCategory !== 'All' ? 1 : 0) + (selectedMake !== 'All' ? 1 : 0) + (searchTerm ? 1 : 0)
+  const activeFiltersCount = (selectedCategory !== 'All Parts' ? 1 : 0) + (selectedMake !== 'All' ? 1 : 0) + (searchTerm ? 1 : 0)
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
@@ -266,57 +268,46 @@ function SearchResultsContent() {
         <main className="lg:col-span-3">
           {filteredProducts.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredProducts.map((product) => {
-  // Compute fitment status against the user's active garage vehicle
-  const fitmentResult = checkFitment(product.rawProduct, vehicle)
+              {filteredProducts.map((product) => (
+                <Link
+                  key={product.code}
+                  href={`/parts/${product.slug}`}
+                  className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card p-4 transition hover:-translate-y-1 hover:border-accent hover:shadow-lg"
+                >
+                  <div>
+                    <div className="relative h-44 w-full overflow-hidden rounded-xl bg-muted/40">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="size-full object-cover object-center transition duration-300 group-hover:scale-105"
+                      />
+                      <span className="absolute left-3 top-3 rounded-full bg-accent px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent-foreground">
+                        {product.tag}
+                      </span>
+                    </div>
 
-  return (
-    <Link
-      key={product.code}
-      href={`/parts/${product.slug}`}
-      className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card p-4 transition hover:-translate-y-1 hover:border-accent hover:shadow-lg"
-    >
-      <div>
-        <div className="relative h-44 w-full overflow-hidden rounded-xl bg-muted/40">
-          <img
-            src={product.image}
-            alt={product.name}
-            className="size-full object-cover object-center transition duration-300 group-hover:scale-105"
-          />
-          <span className="absolute left-3 top-3 rounded-full bg-accent px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent-foreground">
-            {product.tag}
-          </span>
-        </div>
+                    <div className="mt-4">
+                      <span className="font-mono text-[10px] font-bold uppercase text-muted-foreground">
+                        {product.category}
+                      </span>
+                      <h3 className="mt-1 font-mono text-base font-bold transition group-hover:text-accent">
+                        {product.name}
+                      </h3>
 
-        <div className="mt-4">
-          <span className="font-mono text-[10px] font-bold uppercase text-muted-foreground">
-            {product.category}
-          </span>
-          <h3 className="mt-1 font-mono text-base font-bold transition group-hover:text-accent">
-            {product.name}
-          </h3>
+                      <p className="mt-2 text-xs text-muted-foreground">{product.fitment}</p>
+                    </div>
+                  </div>
 
-          {/* Fitment Badge Component */}
-          <div className="mt-2">
-            {/* Adapted to FitmentBadge props: expect status and label */}
-            <FitmentBadge status={fitmentResult.status} label={fitmentResult.label} />
-          </div>
-
-          <p className="mt-2 text-xs text-muted-foreground">{product.fitment}</p>
-        </div>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3">
-        <span className="font-mono text-sm font-bold text-foreground">
-          KES {product.price.toLocaleString()}
-        </span>
-        <span className="inline-flex items-center gap-1 text-xs font-bold text-accent group-hover:underline">
-          View Part <ArrowRight className="size-3" />
-        </span>
-      </div>
-    </Link>
-  )
-})}
+                  <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3">
+                    <span className="font-mono text-sm font-bold text-foreground">
+                      KES {product.price.toLocaleString()}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-accent group-hover:underline">
+                      View Part <ArrowRight className="size-3" />
+                    </span>
+                  </div>
+                </Link>
+              ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/60 p-12 text-center">
